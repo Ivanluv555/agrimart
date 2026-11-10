@@ -15,7 +15,7 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("农惠达 API")
                         .version("dev")
-                        .description("AgriMart - Agricultural Resources E-commerce Platform")
+                        .description("请输入文本")
                         .contact(new Contact()
                                 .name("Ivan Horn")
                                 .email("ivanluv555@outlook.com")));

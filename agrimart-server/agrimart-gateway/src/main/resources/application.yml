@@ -1,0 +1,17 @@
+server.port: ${SERVER_PORT:8080}
+spring.application.name: agrimart-gateway
+management.endpoints.web.exposure.include: health,info
+agrimart.routes.user: ${USER_SERVICE_URL:http://localhost:8081}
+agrimart.routes.trade: ${TRADE_SERVICE_URL:http://localhost:8082}
+agrimart.routes.payment: ${PAYMENT_SERVICE_URL:http://localhost:8083}
+agrimart.gateway-token: ${GATEWAY_TOKEN:dev-gateway-token}
+agrimart.service-token: ${SERVICE_TOKEN:dev-service-token}
+springdoc.swagger-ui.path: /swagger-ui.html
+springdoc.swagger-ui.disable-swagger-default-url: true
+springdoc.swagger-ui.urls:
+  - name: 用户服务
+    url: /docs/user
+  - name: 交易服务
+    url: /docs/trade
+  - name: 支付服务
+    url: /docs/payment

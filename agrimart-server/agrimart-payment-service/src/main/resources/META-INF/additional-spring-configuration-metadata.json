@@ -1,0 +1,19 @@
+{
+    "properties": [
+        {
+            "name": "agrimart.service-token",
+            "type": "java.lang.String",
+            "description": "内部服务调用凭据，可通过 SERVICE_TOKEN 环境变量设置。"
+        },
+        {
+            "name": "payment.provider.configured",
+            "type": "java.lang.Boolean",
+            "description": "是否已配置支付供应商。"
+        },
+        {
+            "name": "agrimart.gateway-token",
+            "type": "java.lang.String",
+            "description": "网关可信身份转发凭据，可通过 GATEWAY_TOKEN 环境变量设置。"
+        }
+    ]
+}

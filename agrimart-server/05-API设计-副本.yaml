@@ -1,0 +1,6260 @@
+openapi: 3.0.3
+info:
+  title: 农惠达开发起步阶段 API 设计
+  version: initial-development-three-services-2026-11-05
+  description: 目标设计：用户、农资买卖、支付三个独立业务微服务，统一网关、注册与配置中心；三个独立逻辑数据库可共用 MySQL 实例。外部路径通过网关 /api，内部路径仅在服务网络开放；所有目标接口尚待实现，不能据此认定当前原型已支持。
+servers:
+- url: http://localhost:8080/api
+  description: 规划中的统一网关，转发时移除 /api 前缀；不是当前单体已经完成的路由配置。
+security:
+- bearerAuth: []
+tags:
+- name: UserController
+  description: S01 用户服务
+- name: MerchantApplicationController
+  description: S01 用户服务
+- name: AdminMerchantApplicationController
+  description: S01 用户服务
+- name: ProductController
+  description: S02 农资买卖服务
+- name: MerchantProductController
+  description: S02 农资买卖服务
+- name: AdminProductController
+  description: S02 农资买卖服务
+- name: CheckoutController
+  description: S02 农资买卖服务
+- name: OrderController
+  description: S02 农资买卖服务
+- name: MerchantOrderController
+  description: S02 农资买卖服务
+- name: PaymentController
+  description: S03 支付服务
+- name: RefundController
+  description: S02 农资买卖服务
+- name: MerchantRefundController
+  description: S02 农资买卖服务
+- name: ReviewController
+  description: S02 农资买卖服务
+- name: MerchantReviewController
+  description: S02 农资买卖服务
+- name: PaymentCallbackController
+  description: S03 支付服务
+- name: InternalAuthController
+  description: S01 用户服务
+- name: InternalMerchantController
+  description: S01 用户服务
+- name: InternalOrderController
+  description: S02 农资买卖服务
+- name: InternalRefundController
+  description: S02 农资买卖服务
+- name: InternalPaymentController
+  description: S03 支付服务
+paths:
+  /users/register:
+    post:
+      tags:
+      - UserController
+      operationId: UserController_register
+      summary: 注册农户账号
+      description: 仅创建 ACTIVE/FARMER，不接受 role。注册不自动登录；手机号和用户名唯一。
+      x-controller: UserController
+      x-controller-method: register
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR01
+      x-allowed-roles:
+      - PUBLIC
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultUserVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: UserController.register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /users/login:
+    post:
+      tags:
+      - UserController
+      operationId: UserController_login
+      summary: 登录
+      description: 校验账号、密码与 ACTIVE 状态，签发两小时可撤销令牌。错误凭据统一返回 401。
+      x-controller: UserController
+      x-controller-method: login
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR01
+      x-allowed-roles:
+      - PUBLIC
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultAuthVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: UserController.login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /users/logout:
+    post:
+      tags:
+      - UserController
+      operationId: UserController_logout
+      summary: 退出登录
+      description: 吊销当前令牌。客户端退出后删除本地认证信息。
+      x-controller: UserController
+      x-controller-method: logout
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      x-allowed-roles:
+      - AUTHENTICATED
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /users/me:
+    get:
+      tags:
+      - UserController
+      operationId: UserController_getMe
+      summary: 查询本人资料
+      description: S01 返回当前用户本人资料。网关和业务服务通过 U01 验证不透明令牌；角色以用户服务的最新状态为准，不信任客户端身份头。
+      x-controller: UserController
+      x-controller-method: getMe
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      x-allowed-roles:
+      - AUTHENTICATED
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultUserVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant-applications:
+    post:
+      tags:
+      - MerchantApplicationController
+      operationId: MerchantApplicationController_apply
+      summary: 申请商家入驻
+      description: ACTIVE/FARMER 可申请；每人最多一条待审核申请。驳回后可重新申请；已批准的商家不能重复申请。
+      x-controller: MerchantApplicationController
+      x-controller-method: apply
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      x-allowed-roles:
+      - FARMER
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantApplicationVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantApplicationDto'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant-applications/me:
+    get:
+      tags:
+      - MerchantApplicationController
+      operationId: MerchantApplicationController_getLatestApplication
+      summary: 查询本人最新入驻申请
+      description: 无申请时返回 404；可查看审核原因，但不能读取其他申请人的联系方式。
+      x-controller: MerchantApplicationController
+      x-controller-method: getLatestApplication
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantApplicationVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /admin/merchant-applications:
+    get:
+      tags:
+      - AdminMerchantApplicationController
+      operationId: AdminMerchantApplicationController_listApplications
+      summary: 查询商家入驻申请
+      description: 管理员可分页查询并按状态筛选；申请创建时间倒序，相同时间按 ID 倒序。
+      x-controller: AdminMerchantApplicationController
+      x-controller-method: listApplications
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR13
+      x-allowed-roles:
+      - ADMIN
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageMerchantApplicationVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ApplicationStatus'
+        description: 申请审核状态。
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /admin/merchant-applications/{applicationId}/decision:
+    post:
+      tags:
+      - AdminMerchantApplicationController
+      operationId: AdminMerchantApplicationController_decideApplication
+      summary: 审核商家入驻
+      description: 只能审核 PENDING。通过后同一事务更新申请并将账号角色改为 MERCHANT；拒绝须说明原因。不得审核自己的申请。
+      x-controller: AdminMerchantApplicationController
+      x-controller-method: decideApplication
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      x-allowed-roles:
+      - ADMIN
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantApplicationVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: applicationId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionDto'
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /products:
+    get:
+      tags:
+      - ProductController
+      operationId: ProductController_searchProducts
+      summary: 搜索公开商品
+      description: 仅展示经营权限有效、未受平台禁售且 ON_SALE 的商品。库存为零仍可展示，但不能下单。按创建时间和 ID 倒序。
+      x-controller: ProductController
+      x-controller-method: searchProducts
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR02
+      - BR13
+      x-allowed-roles:
+      - PUBLIC
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ProductController.searchProducts
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: category
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ProductCategory'
+        description: 按分类筛选。
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 100
+        description: 商品名称或描述关键词。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+    post:
+      tags:
+      - ProductController
+      operationId: ProductController_createProduct
+      summary: 创建商品
+      description: 已批准商家创建自己的商品，不接受 merchantId；初始 OFF_SALE，价格至少 0.01。stock 为初始可用库存。
+      x-controller: ProductController
+      x-controller-method: createProduct
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR01
+      - BR02
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ProductController.createProduct
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreateDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /products/{id}:
+    get:
+      tags:
+      - ProductController
+      operationId: ProductController_getProductById
+      summary: 查询公开商品详情
+      description: 可见性规则与商品搜索一致；下架、禁售或无效商家的商品返回 404。商家管理详情使用 /merchant/products/{id}。
+      x-controller: ProductController
+      x-controller-method: getProductById
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR02
+      x-allowed-roles:
+      - PUBLIC
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ProductController.getProductById
+      security: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+    put:
+      tags:
+      - ProductController
+      operationId: ProductController_updateProduct
+      summary: 更新商品资料
+      description: 仅所属商家可操作。必填字段完整替换，未提供的可选字段清空；不可修改商家、库存、销量或历史订单快照。
+      x-controller: ProductController
+      x-controller-method: updateProduct
+      x-implementation-status: planned
+      x-business-rules:
+      - BR02
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdateDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /products/merchant/{merchantId}:
+    get:
+      tags:
+      - ProductController
+      operationId: ProductController_getMerchantStoreProducts
+      summary: 查询商家公开商品
+      description: 只返回指定商家的公开可见商品，不是商家管理列表。
+      x-controller: ProductController
+      x-controller-method: getMerchantStoreProducts
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR02
+      - BR13
+      x-allowed-roles:
+      - PUBLIC
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ProductController.getProductsByMerchant
+      security: []
+      parameters:
+      - name: merchantId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: category
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ProductCategory'
+        description: 按分类筛选。
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 100
+        description: 商品名称或描述关键词。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /products/{id}/status:
+    put:
+      tags:
+      - ProductController
+      operationId: ProductController_updateProductStatus
+      summary: 上架或下架商品
+      description: 仅所属商家可操作；使用 JSON status，不再接收 Query。平台禁售时禁止上架。下架不取消已有订单。
+      x-controller: ProductController
+      x-controller-method: updateProductStatus
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR02
+      - BR11
+      - BR14
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ProductController.updateProductStatus
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductStatusDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /products/{id}/stock:
+    put:
+      tags:
+      - ProductController
+      operationId: ProductController_adjustStock
+      summary: 调整可用库存
+      description: 仅所属商家可操作。JSON delta 为非零增量且必须说明原因；不能使可用库存为负，也不能直接改预留库存。
+      x-controller: ProductController
+      x-controller-method: adjustStock
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR04
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ProductController.updateStock
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/products:
+    get:
+      tags:
+      - MerchantProductController
+      operationId: MerchantProductController_listOwnProducts
+      summary: 查询本人管理商品
+      description: 服务端限定当前商家，包含上下架及禁售商品，不接受 merchantId 作为授权依据。
+      x-controller: MerchantProductController
+      x-controller-method: listOwnProducts
+      x-implementation-status: planned
+      x-business-rules:
+      - BR02
+      - BR13
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: category
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ProductCategory'
+        description: 按分类筛选。
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 100
+        description: 商品名称或描述关键词。
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ON_SALE
+          - OFF_SALE
+        description: 商品上下架状态。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/products/{id}:
+    get:
+      tags:
+      - MerchantProductController
+      operationId: MerchantProductController_getOwnProduct
+      summary: 查询本人商品管理详情
+      description: 仅所属商家可以查看预留库存及禁售状态。
+      x-controller: MerchantProductController
+      x-controller-method: getOwnProduct
+      x-implementation-status: planned
+      x-business-rules:
+      - BR02
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /admin/products:
+    get:
+      tags:
+      - AdminProductController
+      operationId: AdminProductController_listProducts
+      summary: 查询平台商品
+      description: 管理员可筛选商家与上下架状态，查看禁售状态；此权限不允许代替商家调库存。
+      x-controller: AdminProductController
+      x-controller-method: listProducts
+      x-implementation-status: planned
+      x-business-rules:
+      - BR13
+      - BR14
+      x-allowed-roles:
+      - ADMIN
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: category
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/ProductCategory'
+        description: 按分类筛选。
+      - name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 0
+          maxLength: 100
+        description: 商品名称或描述关键词。
+      - name: merchantId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        description: 商品所属商家。
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - ON_SALE
+          - OFF_SALE
+        description: 商品上下架状态。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /admin/products/{id}/sale-restriction:
+    put:
+      tags:
+      - AdminProductController
+      operationId: AdminProductController_setSaleRestriction
+      summary: 设置或解除平台禁售
+      description: restricted=true 时强制下架并阻止商家重新上架；解除限制不自动上架。必须记录原因，已有订单仍应履约。
+      x-controller: AdminProductController
+      x-controller-method: setSaleRestriction
+      x-implementation-status: planned
+      x-business-rules:
+      - BR02
+      - BR11
+      - BR14
+      x-allowed-roles:
+      - ADMIN
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProductVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleRestrictionDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /checkouts:
+    post:
+      tags:
+      - CheckoutController
+      operationId: CheckoutController_createCheckout
+      summary: 提交结算并按商家拆单
+      description: S02 先经 S01 确认买家身份及各商家经营状态，再在 agrimart_trade 本地事务内合并商品行、按商家拆单并预留库存；任一失败全部回滚。最多 50 行，每种合并数量 1～9999，拒绝自购，单笔上限
+        99999999.99 元。事务不包含远程用户查询或支付调用；经营状态与身份取本次可信快照。
+      x-controller: CheckoutController
+      x-controller-method: createCheckout
+      x-implementation-status: planned
+      x-business-rules:
+      - BR03
+      - BR04
+      - BR11
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCheckoutVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /checkouts/{checkoutNo}:
+    get:
+      tags:
+      - CheckoutController
+      operationId: CheckoutController_getCheckout
+      summary: 查询本人结算批次
+      description: 仅买家可查看；返回批次内订单的最新状态。checkoutNo 不是合并支付或合并退款的交易号。
+      x-controller: CheckoutController
+      x-controller-method: getCheckout
+      x-implementation-status: planned
+      x-business-rules:
+      - BR03
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCheckoutVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: checkoutNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/me:
+    get:
+      tags:
+      - OrderController
+      operationId: OrderController_listMyOrders
+      summary: 查询本人购买订单
+      description: FARMER 与 MERCHANT 均可查询自己的购买订单，身份来自认证上下文。
+      x-controller: OrderController
+      x-controller-method: listMyOrders
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR13
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/OrderStatus'
+        description: 按订单状态筛选。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/{id}:
+    get:
+      tags:
+      - OrderController
+      operationId: OrderController_getOrderById
+      summary: 查询订单详情
+      description: 仅订单买家或订单所属商家可访问；其他主体统一 404。不得泄露其他商家的拆单及收货信息。
+      x-controller: OrderController
+      x-controller-method: getOrderById
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR01
+      - BR03
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: OrderController.getOrderById
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/no/{orderNo}:
+    get:
+      tags:
+      - OrderController
+      operationId: OrderController_getOrderByOrderNo
+      summary: 按订单号查询订单
+      description: 与订单 ID 查询使用相同归属校验，订单号不可作为授权凭据。
+      x-controller: OrderController
+      x-controller-method: getOrderByOrderNo
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR01
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: OrderController.getOrderByOrderNo
+      parameters:
+      - name: orderNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/{id}/cancel:
+    post:
+      tags:
+      - OrderController
+      operationId: OrderController_cancelOrder
+      summary: 取消待支付订单
+      description: 由 S02 校验买家并先提交 CLOSING。没有绑定支付业务号时本地取消并释放预留；否则持久化调用 P01 的任务，由 S03 串行查询并关闭。202 仅代表接受，不证明通道关闭或库存已释放。S02
+        收到可信支付事实后才决定 CANCELLED、PAID 或补偿退款。
+      x-controller: OrderController
+      x-controller-method: cancelOrder
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR04
+      - BR06
+      - BR11
+      - BR15
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '202':
+          description: 已接受，返回当前状态；必须查询最终结果。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 支付供应商未配置或暂不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: OrderController.cancelOrder
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/{id}/receipt:
+    post:
+      tags:
+      - OrderController
+      operationId: OrderController_confirmReceipt
+      summary: 确认收货并完成订单
+      description: 仅买家可将 SHIPPED 转为 COMPLETED。没有自动收货或独立 DELIVERED 步骤；重复相同确认不重复产生副作用。
+      x-controller: OrderController
+      x-controller-method: confirmReceipt
+      x-implementation-status: planned
+      x-business-rules:
+      - BR07
+      - BR11
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/orders:
+    get:
+      tags:
+      - MerchantOrderController
+      operationId: MerchantOrderController_listSalesOrders
+      summary: 查询本人销售订单
+      description: 只返回当前商家的拆分订单；不可用买家订单列表替代。
+      x-controller: MerchantOrderController
+      x-controller-method: listSalesOrders
+      x-implementation-status: planned
+      x-business-rules:
+      - BR03
+      - BR13
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/OrderStatus'
+        description: 按订单状态筛选。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/orders/{id}/shipment:
+    post:
+      tags:
+      - MerchantOrderController
+      operationId: MerchantOrderController_shipOrder
+      summary: 发货
+      description: 仅所属商家可将 PAID 转为 SHIPPED，须填写承运方与运单号；存在退款审核或执行时拒绝。整单发货，不拆包。
+      x-controller: MerchantOrderController
+      x-controller-method: shipOrder
+      x-implementation-status: planned
+      x-business-rules:
+      - BR07
+      - BR08
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultOrderVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/{id}/payments:
+    post:
+      tags:
+      - PaymentController
+      operationId: PaymentController_createPayment
+      summary: 创建或复用沙箱支付
+      description: 由网关优先路由至 S03。S03 验证买家身份，先创建或复用按 orderId 唯一的 INITIATING 支付记录，再调用 S02 T01 获取有效订单授权及服务端金额，最后调用沙箱。S03
+        按 paymentNo 串行协调创建和关闭，不得在关闭门闩生效后新建通道交易。供应商缺失返回 503，不延长订单有效期。
+      x-controller: PaymentController
+      x-controller-method: createPayment
+      x-implementation-status: planned
+      x-business-rules:
+      - BR05
+      - BR06
+      - BR11
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPaymentVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 支付供应商未配置或暂不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /payments/{paymentNo}:
+    get:
+      tags:
+      - PaymentController
+      operationId: PaymentController_getPayment
+      summary: 查询本人支付记录
+      description: 只返回买家本人记录的本地最新状态；不会仅凭浏览器跳转标记成功。
+      x-controller: PaymentController
+      x-controller-method: getPayment
+      x-implementation-status: planned
+      x-business-rules:
+      - BR05
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPaymentVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: paymentNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /payments/{paymentNo}/sync:
+    post:
+      tags:
+      - PaymentController
+      operationId: PaymentController_syncPayment
+      summary: 向通道核对支付结果
+      description: 仅买家可请求。服务器查询通道并按同一状态机归并；未知结果保留 UNKNOWN 并重试，不盲目新建支付。
+      x-controller: PaymentController
+      x-controller-method: syncPayment
+      x-implementation-status: planned
+      x-business-rules:
+      - BR05
+      - BR11
+      - BR12
+      - BR15
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '202':
+          description: 已接受，返回当前状态；必须查询最终结果。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPaymentVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 支付供应商未配置或暂不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: paymentNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+      - $ref: '#/components/parameters/IdempotencyKey'
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /orders/{id}/refunds:
+    post:
+      tags:
+      - RefundController
+      operationId: RefundController_requestRefund
+      summary: 申请发货前全额退款
+      description: S02 仅允许订单买家将 PAID 原子转为 REFUNDING，创建 PENDING_REVIEW 退款申请并阻止发货；金额来自订单实付快照，不从客户端接收。申请与订单属于同一农资数据库，不触碰支付数据库。
+      x-controller: RefundController
+      x-controller-method: requestRefund
+      x-implementation-status: planned
+      x-business-rules:
+      - BR08
+      - BR11
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultRefundVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundCreateDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /refunds/{refundId}:
+    get:
+      tags:
+      - RefundController
+      operationId: RefundController_getRefund
+      summary: 查询退款详情
+      description: 由 S02 返回本人订单的退款申请与最后同步的执行结果投影。资金状态以 S03 为准；投影可能短暂滞后，S02 通过结果通知及 P04 定期核对恢复，禁止跨库查询。
+      x-controller: RefundController
+      x-controller-method: getRefund
+      x-implementation-status: planned
+      x-business-rules:
+      - BR08
+      - BR09
+      - BR15
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultRefundVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: refundId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /refunds/me:
+    get:
+      tags:
+      - RefundController
+      operationId: RefundController_listMyRefunds
+      summary: 查询本人退款
+      description: 由 S02 查询买家本人的退款申请与执行状态投影，包含系统补偿；按创建时间及 ID 倒序。
+      x-controller: RefundController
+      x-controller-method: listMyRefunds
+      x-implementation-status: planned
+      x-business-rules:
+      - BR09
+      - BR13
+      - BR15
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageRefundVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/RefundStatus'
+        description: 按退款状态筛选。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/refunds:
+    get:
+      tags:
+      - MerchantRefundController
+      operationId: MerchantRefundController_listOwnRefunds
+      summary: 查询本人商家退款
+      description: 由 S02 查询本人商家订单的退款申请与执行状态投影。系统补偿只读，不接受商家重新审核。
+      x-controller: MerchantRefundController
+      x-controller-method: listOwnRefunds
+      x-implementation-status: planned
+      x-business-rules:
+      - BR08
+      - BR13
+      - BR15
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageRefundVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: status
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/RefundStatus'
+        description: 按退款状态筛选。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/refunds/{refundId}/decision:
+    post:
+      tags:
+      - MerchantRefundController
+      operationId: MerchantRefundController_decideRefund
+      summary: 审核全额退款申请
+      description: S02 仅允许所属商家审核待审核申请。拒绝须说明原因并本地恢复 PAID；同意后先提交审核结果和持久化 P02 执行任务，投递成功不等于退款成功。S03 独立执行退款并通过 T04 回传事实，S02
+        才本地更新订单与库存。
+      x-controller: MerchantRefundController
+      x-controller-method: decideRefund
+      x-implementation-status: planned
+      x-business-rules:
+      - BR08
+      - BR09
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultRefundVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: refundId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/refunds/{refundId}/retry:
+    post:
+      tags:
+      - MerchantRefundController
+      operationId: MerchantRefundController_retryRefund
+      summary: 重试异常退款
+      description: S02 校验所属商家及已批准且 FAILED/UNKNOWN 的申请，持久化重试同一 refundNo 的 P02 任务。S03 先查询通道、再决定是否重试；不创建新退款。系统补偿由内部任务重试。
+      x-controller: MerchantRefundController
+      x-controller-method: retryRefund
+      x-implementation-status: planned
+      x-business-rules:
+      - BR09
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '202':
+          description: 已接受，返回当前状态；必须查询最终结果。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultRefundVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 支付供应商未配置或暂不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: refundId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /reviews:
+    post:
+      tags:
+      - ReviewController
+      operationId: ReviewController_createReview
+      summary: 按订单项评价商品
+      description: 仅已完成订单买家可提交。通过 orderItemId 推导订单与商品，不再接受 userId/orderId/productId。每个订单项只能评价一次，数据库唯一约束保护并发。
+      x-controller: ReviewController
+      x-controller-method: createReview
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR10
+      - BR11
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultReviewVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ReviewController.createReview
+      parameters:
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /reviews/product/{productId}:
+    get:
+      tags:
+      - ReviewController
+      operationId: ReviewController_getProductReviews
+      summary: 查询公开商品评价
+      description: 商品必须公开可见；评价作者只显示脱敏名称，不返回手机号、地址或订单号。按创建时间和 ID 倒序。
+      x-controller: ReviewController
+      x-controller-method: getProductReviews
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR02
+      - BR10
+      - BR13
+      x-allowed-roles:
+      - PUBLIC
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageReviewVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ReviewController.getProductReviews
+      security: []
+      parameters:
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /reviews/me:
+    get:
+      tags:
+      - ReviewController
+      operationId: ReviewController_listMyReviews
+      summary: 查询本人评价
+      description: 仅查询本人购买产生的评价，不接受其他用户 ID。
+      x-controller: ReviewController
+      x-controller-method: listMyReviews
+      x-implementation-status: planned
+      x-business-rules:
+      - BR10
+      - BR13
+      x-allowed-roles:
+      - FARMER
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageReviewVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /merchant/reviews:
+    get:
+      tags:
+      - MerchantReviewController
+      operationId: MerchantReviewController_listOwnProductReviews
+      summary: 查询本人商品评价
+      description: 包含本人上下架商品的评价，支持按 productId 筛选；不能修改买家评分。
+      x-controller: MerchantReviewController
+      x-controller-method: listOwnProductReviews
+      x-implementation-status: planned
+      x-business-rules:
+      - BR10
+      - BR13
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPageReviewVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: productId
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        description: 限本人商品。
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /reviews/{id}/reply:
+    post:
+      tags:
+      - ReviewController
+      operationId: ReviewController_replyReview
+      summary: 回复本人商品评价
+      description: 仅所属商家可回复一次，JSON reply 替代 Query。相同内容重试返回原回复，不同内容再次提交返回 409。
+      x-controller: ReviewController
+      x-controller-method: replyReview
+      x-implementation-status: existing-needs-change
+      x-business-rules:
+      - BR10
+      - BR11
+      x-allowed-roles:
+      - MERCHANT
+      responses:
+        '200':
+          description: 操作成功；同步成功业务码为 200。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultReviewVo'
+        '400':
+          description: 输入或参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 未登录、令牌失效或账号不可用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 缺少所需角色或经营权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 资源不存在或不属于当前主体
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 业务状态、库存、唯一性或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '500':
+          description: 内部异常，不返回内部细节
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      x-current-handler: ReviewController.replyReview
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewReplyDto'
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /payment-callbacks/{providerCode}/payments:
+    post:
+      tags:
+      - PaymentCallbackController
+      operationId: PaymentCallbackController_receivePaymentEvent
+      summary: 接收沙箱支付回调
+      description: 此处仅定义适配入口，不虚构通用供应商回调格式。适配器读取原始请求并验证供应商签名、商户、环境、金额、币种、交易关联及事件唯一性，转换为内部事件后幂等持久化。供应商选型后必须补齐请求字段、签名算法、证书来源、应答内容与重试规则。验签失败不得更新业务状态。
+      security: []
+      x-controller: PaymentCallbackController
+      x-controller-method: receivePaymentEvent
+      x-implementation-status: planned-adapter-required
+      x-business-rules:
+      - BR05
+      - BR09
+      - BR12
+      - BR15
+      x-allowed-roles:
+      - VERIFIED_PROVIDER
+      x-provider-wire-format-unresolved: true
+      parameters:
+      - name: providerCode
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9_-]+$
+      requestBody:
+        required: true
+        description: 保留原始请求字节；具体媒体类型与编码由选定供应商确定。
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        '200':
+          description: 按通道协议返回成功应答，仅在验签和持久化成功或已幂等处理后确认；不使用 Result 包装。
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: 无效事件；具体失败应答需由适配器按通道协议确定。
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '503':
+          description: 暂时无法持久化或处理，不能错误确认成功。
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /payment-callbacks/{providerCode}/refunds:
+    post:
+      tags:
+      - PaymentCallbackController
+      operationId: PaymentCallbackController_receiveRefundEvent
+      summary: 接收沙箱退款回调
+      description: 此处仅定义适配入口，不虚构通用供应商回调格式。适配器读取原始请求并验证供应商签名、商户、环境、金额、币种、交易关联及事件唯一性，转换为内部事件后幂等持久化。供应商选型后必须补齐请求字段、签名算法、证书来源、应答内容与重试规则。验签失败不得更新业务状态。
+      security: []
+      x-controller: PaymentCallbackController
+      x-controller-method: receiveRefundEvent
+      x-implementation-status: planned-adapter-required
+      x-business-rules:
+      - BR05
+      - BR09
+      - BR12
+      - BR15
+      x-allowed-roles:
+      - VERIFIED_PROVIDER
+      x-provider-wire-format-unresolved: true
+      parameters:
+      - name: providerCode
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9_-]+$
+      requestBody:
+        required: true
+        description: 保留原始请求字节；具体媒体类型与编码由选定供应商确定。
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+      responses:
+        '200':
+          description: 按通道协议返回成功应答，仅在验签和持久化成功或已幂等处理后确认；不使用 Result 包装。
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: 无效事件；具体失败应答需由适配器按通道协议确定。
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '503':
+          description: 暂时无法持久化或处理，不能错误确认成功。
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: external
+      x-data-boundary: 仅访问本服务数据库；远端数据通过已授权内部 API 获取，不跨库查询或建立跨服务外键。
+  /internal/auth/introspections:
+    post:
+      tags:
+      - InternalAuthController
+      operationId: InternalAuthController_introspect
+      summary: 校验用户令牌
+      description: 网关、农资和支付服务使用本身服务凭据查询不透明令牌。无效令牌返回 active=false；用户服务不可用时调用方拒绝受保护操作，不信任公网 X-User-Id 或角色头。
+      x-operation-code: U01
+      x-controller: InternalAuthController
+      x-controller-method: introspect
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: internal
+      x-allowed-callers:
+      - gateway
+      - S02
+      - S03
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-user-service:8081
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultAuthContextVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenIntrospectionDto'
+  /internal/merchants/{merchantId}:
+    get:
+      tags:
+      - InternalMerchantController
+      operationId: InternalMerchantController_getMerchant
+      summary: 查询商家经营资格
+      description: 仅返回经营状态及店铺名称；S02 下单和经营命令校验资格，不泄露手机号或住址。不存在返回 404，未批准返回 approved=false。
+      x-operation-code: U02
+      x-controller: InternalMerchantController
+      x-controller-method: getMerchant
+      x-service-id: S01
+      x-service-name: agrimart-user-service
+      x-audience: internal
+      x-allowed-callers:
+      - S02
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-user-service:8081
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultMerchantProfileVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: merchantId
+        in: path
+        required: true
+        schema: &id001
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+  /internal/orders/{orderId}/payment-authorizations:
+    post:
+      tags:
+      - InternalOrderController
+      operationId: InternalOrderController_authorizePayment
+      summary: 授权订单支付
+      description: S03 先持久化唯一支付记录再调用。本地校验 buyerId、PENDING_PAYMENT、到期时间及未关闭条件，将 paymentNo 唯一绑定到订单，返回服务端金额。进入 CLOSING
+        后不得签发新授权；远程供应商调用不在本事务内。
+      x-operation-code: T01
+      x-controller: InternalOrderController
+      x-controller-method: authorizePayment
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: internal
+      x-allowed-callers:
+      - S03
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-trade-service:8082
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultPaymentAuthorizationVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentAuthorizationDto'
+  /internal/orders/{orderId}/payment-events:
+    post:
+      tags:
+      - InternalOrderController
+      operationId: InternalOrderController_applyPaymentEvent
+      summary: 归并可信支付或关单事实
+      description: 仅接受 S03。以 eventId 去重并检查 paymentNo、金额、币种、环境与版本；在 agrimart_trade 本地事务内写收件记录、订单和库存流水。已付不回退为关闭；超期或取消后收款创建系统补偿退款及
+        P02 待办。
+      x-operation-code: T02
+      x-controller: InternalOrderController
+      x-controller-method: applyPaymentEvent
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: internal
+      x-allowed-callers:
+      - S03
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-trade-service:8082
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema: *id001
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentEventDto'
+  /internal/refunds/{refundNo}/execution-authorization:
+    get:
+      tags:
+      - InternalRefundController
+      operationId: InternalRefundController_authorizeExecution
+      summary: 读取退款执行授权
+      description: 仅 S03 可读。BUYER_REQUEST 必须已经商家同意；LATE_PAYMENT_COMPENSATION 必须有系统资金事实。返回不可变全额退款授权，未批准返回 409，不接受客户端金额。
+      x-operation-code: T03
+      x-controller: InternalRefundController
+      x-controller-method: authorizeExecution
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: internal
+      x-allowed-callers:
+      - S03
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-trade-service:8082
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultRefundExecutionAuthorizationVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: refundNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+  /internal/refunds/{refundNo}/execution-events:
+    post:
+      tags:
+      - InternalRefundController
+      operationId: InternalRefundController_applyExecutionEvent
+      summary: 归并退款执行事实
+      description: 仅接受 S03。检查退款业务号、支付号、金额及事件版本，以 eventId 去重；成功事实与订单 REFUNDED、库存回补及销量扣回在 S02 同一事务执行。系统补偿仅同步退款结果，不再次回补库存。
+      x-operation-code: T04
+      x-controller: InternalRefundController
+      x-controller-method: applyExecutionEvent
+      x-service-id: S02
+      x-service-name: agrimart-trade-service
+      x-audience: internal
+      x-allowed-callers:
+      - S03
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-trade-service:8082
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultVoid'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: refundNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundEventDto'
+  /internal/payments/{paymentNo}/close:
+    post:
+      tags:
+      - InternalPaymentController
+      operationId: InternalPaymentController_closePayment
+      summary: 接受关闭支付命令
+      description: 仅 S02 发起，以 commandId 去重。S03 持久化关闭门闩并串行协调在途创建、查询及关闭调用；未知结果保留并重试。接受成功不等于关闭成功，最终事实经 T02 回传。
+      x-operation-code: P01
+      x-controller: InternalPaymentController
+      x-controller-method: closePayment
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: internal
+      x-allowed-callers:
+      - S02
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-payment-service:8083
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '202':
+          description: 已持久化接受，须等待结果事实；不得据此释放库存。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCommandAcceptedVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: paymentNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClosePaymentDto'
+  /internal/refunds:
+    post:
+      tags:
+      - InternalPaymentController
+      operationId: InternalPaymentController_executeRefund
+      summary: 接受或重试全额退款执行
+      description: 仅 S02 发起。以 commandId 去重并按 refundNo 永久唯一；S03 调用 T03 取得授权，核对本服务已成功支付记录后执行，重试先查通道。执行结果经 T04 回传并保留重投任务。
+      x-operation-code: P02
+      x-controller: InternalPaymentController
+      x-controller-method: executeRefund
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: internal
+      x-allowed-callers:
+      - S02
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-payment-service:8083
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '202':
+          description: 已持久化接受，须等待结果事实；不得据此释放库存。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultCommandAcceptedVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRefundDto'
+  /internal/payments/{paymentNo}:
+    get:
+      tags:
+      - InternalPaymentController
+      operationId: InternalPaymentController_getPaymentState
+      summary: 查询权威支付状态
+      description: 仅 S02 用于修复丢失通知或核对关闭结果，返回支付服务持久化的权威版本。未知状态不能当作未支付；S02 通过与 T02 相同的去重归并规则更新本地投影。
+      x-operation-code: P03
+      x-controller: InternalPaymentController
+      x-controller-method: getPaymentState
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: internal
+      x-allowed-callers:
+      - S02
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-payment-service:8083
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultInternalPaymentStateVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: paymentNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+  /internal/refunds/{refundNo}:
+    get:
+      tags:
+      - InternalPaymentController
+      operationId: InternalPaymentController_getRefundState
+      summary: 查询权威退款执行状态
+      description: 仅 S02 用于补偿核对，返回 S03 的执行结果及版本；不直接修改农资库存或订单。
+      x-operation-code: P04
+      x-controller: InternalPaymentController
+      x-controller-method: getRefundState
+      x-service-id: S03
+      x-service-name: agrimart-payment-service
+      x-audience: internal
+      x-allowed-callers:
+      - S02
+      x-implementation-status: planned
+      x-business-rules:
+      - BR01
+      - BR11
+      - BR12
+      security:
+      - serviceAuth: []
+      servers:
+      - url: http://agrimart-payment-service:8083
+        description: 仅内部网络，服务路径不含网关 /api 前缀。
+      responses:
+        '200':
+          description: 服务内操作成功，code=200；事件已处理时幂等确认。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultInternalRefundStateVo'
+        '400':
+          description: 请求或事实字段不合法
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '401':
+          description: 内部服务凭据缺失或无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '403':
+          description: 调用方无此接口权限
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '404':
+          description: 本服务资源不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '409':
+          description: 状态、业务号、金额或事件版本冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+        '503':
+          description: 依赖不可用，不能伪造成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResult'
+      parameters:
+      - name: refundNo
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 64
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 服务端可撤销的不透明访问令牌，有效期 2 小时；当前源码没有实现。
+    serviceAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: 内部调用方专用凭据，按调用方及接口授权，配合内网隔离和 HTTPS；不能复用用户 Bearer 令牌。网关必须阻断公网 /internal/**，且不接受客户端伪造的身份头。
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000000
+        default: 1
+      description: 页码从 1 开始。
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+      description: 每页最多 100 条。
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: ^[A-Za-z0-9_-]+$
+      description: 按主体与操作隔离。相同键和规范化请求返回原结果；相同键不同请求返回 409；记录至少保留 7 天，业务唯一约束永久防重复。
+  schemas:
+    Money:
+      type: string
+      pattern: ^(0|[1-9][0-9]{0,7})\.[0-9]{2}$
+      example: '41.00'
+      description: 人民币元，固定两位小数，禁止二进制浮点计算；单笔金额不超过 99999999.99。
+    ProductCategory:
+      type: string
+      enum:
+      - FERTILIZER
+      - SEED
+      - PESTICIDE
+      - AGRICULTURAL_TOOL
+    OrderStatus:
+      type: string
+      enum:
+      - PENDING_PAYMENT
+      - CLOSING
+      - PAID
+      - SHIPPED
+      - COMPLETED
+      - CANCELLED
+      - REFUNDING
+      - REFUNDED
+    PaymentStatus:
+      type: string
+      enum:
+      - INITIATING
+      - PENDING
+      - SUCCEEDED
+      - CLOSED
+      - FAILED
+      - UNKNOWN
+    RefundStatus:
+      type: string
+      enum:
+      - PENDING_REVIEW
+      - REJECTED
+      - PROCESSING
+      - SUCCEEDED
+      - FAILED
+      - UNKNOWN
+    ApplicationStatus:
+      type: string
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+    UserVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        realName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        phone:
+          type: string
+          pattern: ^1[3-9][0-9]{9}$
+        email:
+          type: string
+          minLength: 0
+          maxLength: 100
+          format: email
+        role:
+          type: string
+          enum:
+          - FARMER
+          - MERCHANT
+          - ADMIN
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - INACTIVE
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - username
+      - realName
+      - phone
+      - role
+      - status
+      - createdAt
+    RegisterDto:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+        realName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        phone:
+          type: string
+          pattern: ^1[3-9][0-9]{9}$
+        email:
+          type: string
+          minLength: 0
+          maxLength: 100
+          format: email
+      required:
+      - username
+      - password
+      - realName
+      - phone
+    LoginDto:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+      required:
+      - username
+      - password
+    AuthVo:
+      type: object
+      additionalProperties: false
+      properties:
+        accessToken:
+          type: string
+          minLength: 32
+          maxLength: 512
+        tokenType:
+          type: string
+          enum:
+          - Bearer
+        expiresIn:
+          type: integer
+          enum:
+          - 7200
+        user:
+          $ref: '#/components/schemas/UserVo'
+      required:
+      - accessToken
+      - tokenType
+      - expiresIn
+      - user
+    MerchantApplicationDto:
+      type: object
+      additionalProperties: false
+      properties:
+        shopName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        contactName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        contactPhone:
+          type: string
+          pattern: ^1[3-9][0-9]{9}$
+        businessDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - shopName
+      - contactName
+      - contactPhone
+      - businessDescription
+    MerchantApplicationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        applicantId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        shopName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        contactName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        contactPhone:
+          type: string
+          pattern: ^1[3-9][0-9]{9}$
+        businessDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        reviewReason:
+          type: string
+          minLength: 0
+          maxLength: 500
+        reviewedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - applicantId
+      - shopName
+      - contactName
+      - contactPhone
+      - businessDescription
+      - status
+      - createdAt
+    DecisionDto:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        properties:
+          decision:
+            type: string
+            enum:
+            - APPROVE
+          reason:
+            type: string
+            minLength: 0
+            maxLength: 500
+        required:
+        - decision
+      - type: object
+        additionalProperties: false
+        properties:
+          decision:
+            type: string
+            enum:
+            - REJECT
+          reason:
+            type: string
+            minLength: 1
+            maxLength: 500
+        required:
+        - decision
+        - reason
+    ProductCreateDto:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        price:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          - not:
+              enum:
+              - '0.00'
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 50
+        brand:
+          type: string
+          minLength: 0
+          maxLength: 100
+        specification:
+          type: string
+          minLength: 0
+          maxLength: 100
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 500
+          minItems: 0
+          maxItems: 5
+        usageGuide:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        stock:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+      required:
+      - name
+      - category
+      - price
+      - unit
+      - stock
+    ProductUpdateDto:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        price:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          - not:
+              enum:
+              - '0.00'
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 50
+        brand:
+          type: string
+          minLength: 0
+          maxLength: 100
+        specification:
+          type: string
+          minLength: 0
+          maxLength: 100
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 500
+          minItems: 0
+          maxItems: 5
+        usageGuide:
+          type: string
+          minLength: 0
+          maxLength: 5000
+      required:
+      - name
+      - category
+      - price
+      - unit
+    ProductStatusDto:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - ON_SALE
+          - OFF_SALE
+      required:
+      - status
+    StockAdjustmentDto:
+      type: object
+      additionalProperties: false
+      properties:
+        delta:
+          type: integer
+          minimum: -1000000
+          maximum: 1000000
+          not:
+            enum:
+            - 0
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - delta
+      - reason
+    SaleRestrictionDto:
+      type: object
+      additionalProperties: false
+      properties:
+        restricted:
+          type: boolean
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - restricted
+      - reason
+    ProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        price:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          - not:
+              enum:
+              - '0.00'
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 50
+        brand:
+          type: string
+          minLength: 0
+          maxLength: 100
+        specification:
+          type: string
+          minLength: 0
+          maxLength: 100
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 500
+          minItems: 0
+          maxItems: 5
+        usageGuide:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        stock:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        status:
+          type: string
+          enum:
+          - ON_SALE
+          - OFF_SALE
+        merchantId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        shopName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        salesCount:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - name
+      - category
+      - price
+      - unit
+      - stock
+      - status
+      - merchantId
+      - shopName
+      - salesCount
+      - rating
+      - createdAt
+    MerchantProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        category:
+          $ref: '#/components/schemas/ProductCategory'
+        price:
+          allOf:
+          - $ref: '#/components/schemas/Money'
+          - not:
+              enum:
+              - '0.00'
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 50
+        brand:
+          type: string
+          minLength: 0
+          maxLength: 100
+        specification:
+          type: string
+          minLength: 0
+          maxLength: 100
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 500
+          minItems: 0
+          maxItems: 5
+        usageGuide:
+          type: string
+          minLength: 0
+          maxLength: 5000
+        stock:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        status:
+          type: string
+          enum:
+          - ON_SALE
+          - OFF_SALE
+        merchantId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        shopName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        salesCount:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        reservedStock:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        saleRestricted:
+          type: boolean
+      required:
+      - id
+      - name
+      - category
+      - price
+      - unit
+      - stock
+      - status
+      - merchantId
+      - shopName
+      - salesCount
+      - rating
+      - createdAt
+      - reservedStock
+      - saleRestricted
+    CheckoutItemDto:
+      type: object
+      additionalProperties: false
+      properties:
+        productId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 9999
+      required:
+      - productId
+      - quantity
+    CheckoutDto:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutItemDto'
+          minItems: 1
+          maxItems: 50
+        shippingAddress:
+          type: string
+          minLength: 1
+          maxLength: 200
+        receiverName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        receiverPhone:
+          type: string
+          pattern: ^1[3-9][0-9]{9}$
+        remark:
+          type: string
+          minLength: 0
+          maxLength: 500
+      required:
+      - items
+      - shippingAddress
+      - receiverName
+      - receiverPhone
+    OrderItemVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        productId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        price:
+          $ref: '#/components/schemas/Money'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 9999
+        subtotal:
+          $ref: '#/components/schemas/Money'
+        productImage:
+          type: string
+          minLength: 0
+          maxLength: 500
+          format: uri
+        reviewed:
+          type: boolean
+      required:
+      - id
+      - productId
+      - productName
+      - price
+      - quantity
+      - subtotal
+      - reviewed
+    ShipmentVo:
+      type: object
+      additionalProperties: false
+      properties:
+        carrierName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        trackingNumber:
+          type: string
+          minLength: 1
+          maxLength: 100
+        shippedAt:
+          type: string
+          format: date-time
+      required:
+      - carrierName
+      - trackingNumber
+      - shippedAt
+    OrderVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        orderNo:
+          type: string
+          minLength: 1
+          maxLength: 50
+        checkoutNo:
+          type: string
+          minLength: 1
+          maxLength: 50
+        userId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        merchantId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        shopName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        orderItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemVo'
+          minItems: 1
+          maxItems: 50
+        totalAmount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        shippingAddress:
+          type: string
+          minLength: 1
+          maxLength: 200
+        receiverName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        receiverPhone:
+          type: string
+          pattern: ^1[3-9][0-9]{9}$
+        remark:
+          type: string
+          minLength: 0
+          maxLength: 500
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        shipment:
+          $ref: '#/components/schemas/ShipmentVo'
+        closeReason:
+          type: string
+          enum:
+          - USER_CANCELLED
+          - PAYMENT_TIMEOUT
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        activeRefundId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+      required:
+      - id
+      - orderNo
+      - checkoutNo
+      - userId
+      - merchantId
+      - shopName
+      - orderItems
+      - totalAmount
+      - currency
+      - status
+      - shippingAddress
+      - receiverName
+      - receiverPhone
+      - expiresAt
+      - createdAt
+      description: 状态相关字段：PAID 及其后续状态须有 paymentNo/paidAt；SHIPPED/COMPLETED 须有 shipment；COMPLETED 须有 completedAt；CANCELLED
+        须有 closeReason；REFUNDING 须有 activeRefundId。其他无值字段省略。
+    CheckoutVo:
+      type: object
+      additionalProperties: false
+      properties:
+        checkoutNo:
+          type: string
+          minLength: 1
+          maxLength: 50
+        createdAt:
+          type: string
+          format: date-time
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderVo'
+          minItems: 1
+          maxItems: 50
+      required:
+      - checkoutNo
+      - createdAt
+      - orders
+    CancelDto:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - reason
+    ShipmentDto:
+      type: object
+      additionalProperties: false
+      properties:
+        carrierName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        trackingNumber:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - carrierName
+      - trackingNumber
+    PaymentVo:
+      type: object
+      additionalProperties: false
+      properties:
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        orderId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        providerCode:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9_-]+$
+        environment:
+          type: string
+          enum:
+          - SANDBOX
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        checkoutUrl:
+          type: string
+          minLength: 0
+          maxLength: 2000
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+        providerTransactionNo:
+          type: string
+          minLength: 1
+          maxLength: 128
+        paidAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - paymentNo
+      - orderId
+      - providerCode
+      - environment
+      - amount
+      - currency
+      - status
+      - expiresAt
+      - createdAt
+      description: 统一业务侧支付模型，不是供应商通知原文。INITIATING/UNKNOWN 可以暂无 checkoutUrl；PENDING 可拉起支付时必须有 checkoutUrl；SUCCEEDED
+        必须有已核对的 providerTransactionNo 与 paidAt。
+    RefundCreateDto:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - reason
+    RefundVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        refundNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        orderId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        type:
+          type: string
+          enum:
+          - BUYER_REQUEST
+          - LATE_PAYMENT_COMPENSATION
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        status:
+          $ref: '#/components/schemas/RefundStatus'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        reviewReason:
+          type: string
+          minLength: 0
+          maxLength: 500
+        providerRefundNo:
+          type: string
+          minLength: 1
+          maxLength: 128
+        failureCode:
+          type: string
+          minLength: 1
+          maxLength: 100
+        createdAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+        refundedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - refundNo
+      - orderId
+      - paymentNo
+      - type
+      - amount
+      - currency
+      - status
+      - reason
+      - createdAt
+      description: S02 维护退款申请与 S03 执行结果投影，不跨库联表。SUCCEEDED 必须有 refundedAt；只有 BUYER_REQUEST/PENDING_REVIEW 接受商家审核；系统补偿自动授权。
+    ReviewCreateDto:
+      type: object
+      additionalProperties: false
+      properties:
+        orderItemId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        content:
+          type: string
+          minLength: 0
+          maxLength: 2000
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 500
+          minItems: 0
+          maxItems: 5
+      required:
+      - orderItemId
+      - rating
+    ReviewReplyDto:
+      type: object
+      additionalProperties: false
+      properties:
+        reply:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required:
+      - reply
+    ReviewVo:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        productId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        authorDisplayName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        content:
+          type: string
+          minLength: 0
+          maxLength: 2000
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            maxLength: 500
+          minItems: 0
+          maxItems: 5
+        merchantReply:
+          type: string
+          minLength: 0
+          maxLength: 1000
+        repliedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - productId
+      - authorDisplayName
+      - rating
+      - createdAt
+    Void:
+      type: object
+      nullable: true
+      enum:
+      - null
+      description: 成功时 data 为 null。
+    ErrorResult:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          minimum: 400
+          maximum: 599
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          type: object
+          nullable: true
+          enum:
+          - null
+        errorCode:
+          type: string
+          enum:
+          - VALIDATION_ERROR
+          - UNAUTHENTICATED
+          - FORBIDDEN
+          - RESOURCE_NOT_FOUND
+          - ACCOUNT_CONFLICT
+          - STATE_CONFLICT
+          - STOCK_INSUFFICIENT
+          - AMOUNT_LIMIT_EXCEEDED
+          - MERCHANT_NOT_APPROVED
+          - PRODUCT_UNAVAILABLE
+          - DUPLICATE_REVIEW
+          - IDEMPOTENCY_CONFLICT
+          - PAYMENT_ALREADY_SUCCEEDED
+          - PAYMENT_PROVIDER_NOT_CONFIGURED
+          - PROVIDER_UNAVAILABLE
+          - CALLBACK_INVALID
+          - INTERNAL_ERROR
+          - DEPENDENCY_UNAVAILABLE
+        traceId:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - code
+      - message
+      - data
+      - errorCode
+      - traceId
+    ResultUserVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/UserVo'
+      required:
+      - code
+      - message
+      - data
+    ResultAuthVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/AuthVo'
+      required:
+      - code
+      - message
+      - data
+    ResultVoid:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/Void'
+      required:
+      - code
+      - message
+      - data
+    ResultMerchantApplicationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/MerchantApplicationVo'
+      required:
+      - code
+      - message
+      - data
+    PageMerchantApplicationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantApplicationVo'
+          minItems: 0
+          maxItems: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+      - records
+      - total
+      - page
+      - size
+      - totalPages
+    ResultPageMerchantApplicationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PageMerchantApplicationVo'
+      required:
+      - code
+      - message
+      - data
+    PageProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductVo'
+          minItems: 0
+          maxItems: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+      - records
+      - total
+      - page
+      - size
+      - totalPages
+    ResultPageProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PageProductVo'
+      required:
+      - code
+      - message
+      - data
+    ResultProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/ProductVo'
+      required:
+      - code
+      - message
+      - data
+    ResultMerchantProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/MerchantProductVo'
+      required:
+      - code
+      - message
+      - data
+    PageMerchantProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantProductVo'
+          minItems: 0
+          maxItems: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+      - records
+      - total
+      - page
+      - size
+      - totalPages
+    ResultPageMerchantProductVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PageMerchantProductVo'
+      required:
+      - code
+      - message
+      - data
+    ResultCheckoutVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/CheckoutVo'
+      required:
+      - code
+      - message
+      - data
+    PageOrderVo:
+      type: object
+      additionalProperties: false
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderVo'
+          minItems: 0
+          maxItems: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+      - records
+      - total
+      - page
+      - size
+      - totalPages
+    ResultPageOrderVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PageOrderVo'
+      required:
+      - code
+      - message
+      - data
+    ResultOrderVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/OrderVo'
+      required:
+      - code
+      - message
+      - data
+    ResultPaymentVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PaymentVo'
+      required:
+      - code
+      - message
+      - data
+    ResultRefundVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/RefundVo'
+      required:
+      - code
+      - message
+      - data
+    PageRefundVo:
+      type: object
+      additionalProperties: false
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/RefundVo'
+          minItems: 0
+          maxItems: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+      - records
+      - total
+      - page
+      - size
+      - totalPages
+    ResultPageRefundVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PageRefundVo'
+      required:
+      - code
+      - message
+      - data
+    ResultReviewVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/ReviewVo'
+      required:
+      - code
+      - message
+      - data
+    PageReviewVo:
+      type: object
+      additionalProperties: false
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewVo'
+          minItems: 0
+          maxItems: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalPages:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+      required:
+      - records
+      - total
+      - page
+      - size
+      - totalPages
+    ResultPageReviewVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PageReviewVo'
+      required:
+      - code
+      - message
+      - data
+    TokenIntrospectionDto:
+      type: object
+      additionalProperties: false
+      properties:
+        accessToken:
+          type: string
+          minLength: 32
+          maxLength: 512
+          writeOnly: true
+      required:
+      - accessToken
+    AuthContextVo:
+      type: object
+      additionalProperties: false
+      properties:
+        active:
+          type: boolean
+        subjectId: *id001
+        role:
+          type: string
+          enum:
+          - FARMER
+          - MERCHANT
+          - ADMIN
+        expiresAt: &id002
+          type: string
+          format: date-time
+      required:
+      - active
+      description: active=false 表示令牌无效；active=true 必须返回 subjectId、role、expiresAt。只供网关和服务验证身份，不能用于公开用户资料查询。
+    MerchantProfileVo:
+      type: object
+      additionalProperties: false
+      properties:
+        merchantId: *id001
+        approved:
+          type: boolean
+        active:
+          type: boolean
+        shopName:
+          type: string
+          minLength: 2
+          maxLength: 100
+      required:
+      - merchantId
+      - approved
+      - active
+    PaymentAuthorizationDto:
+      type: object
+      additionalProperties: false
+      properties:
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        buyerId: *id001
+      required:
+      - paymentNo
+      - buyerId
+    PaymentAuthorizationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        authorizationNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        orderId: *id001
+        orderNo:
+          type: string
+          minLength: 1
+          maxLength: 50
+        buyerId: *id001
+        merchantId: *id001
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        expiresAt: *id002
+      required:
+      - authorizationNo
+      - paymentNo
+      - orderId
+      - orderNo
+      - buyerId
+      - merchantId
+      - amount
+      - currency
+      - expiresAt
+    PaymentEventDto:
+      type: object
+      additionalProperties: false
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        orderId: *id001
+        version: &id003
+          type: integer
+          format: int64
+          minimum: 1
+        status:
+          type: string
+          enum:
+          - SUCCEEDED
+          - CLOSED
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        environment:
+          type: string
+          enum:
+          - SANDBOX
+        providerTransactionNo:
+          type: string
+          minLength: 1
+          maxLength: 128
+        paidAt: *id002
+      required:
+      - eventId
+      - paymentNo
+      - orderId
+      - version
+      - status
+      - amount
+      - currency
+      - environment
+      description: SUCCEEDED 必须携带经验证的通道交易号和支付时间；CLOSED 仅表示确认未支付且已关闭。S02 校验已绑定 paymentNo、金额及版本，持久化收件去重后原子更新订单库存。
+    RefundExecutionAuthorizationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        refundNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        orderId: *id001
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        type:
+          type: string
+          enum:
+          - BUYER_REQUEST
+          - LATE_PAYMENT_COMPENSATION
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        merchantId: *id001
+        approvedAt: *id002
+      required:
+      - refundNo
+      - orderId
+      - paymentNo
+      - type
+      - amount
+      - currency
+      - merchantId
+      - approvedAt
+    RefundEventDto:
+      type: object
+      additionalProperties: false
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        refundNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        version: *id003
+        status:
+          type: string
+          enum:
+          - PROCESSING
+          - SUCCEEDED
+          - FAILED
+          - UNKNOWN
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        providerRefundNo:
+          type: string
+          minLength: 1
+          maxLength: 128
+        refundedAt: *id002
+        failureCode:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - eventId
+      - refundNo
+      - paymentNo
+      - version
+      - status
+      - amount
+      - currency
+      description: SUCCEEDED 必须携带退款完成时间；资金执行状态由 S03 负责，S02 仅保留投影并执行一次库存副作用。
+    ClosePaymentDto:
+      type: object
+      additionalProperties: false
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        reason:
+          type: string
+          enum:
+          - USER_CANCELLED
+          - PAYMENT_TIMEOUT
+      required:
+      - commandId
+      - reason
+    ExecuteRefundDto:
+      type: object
+      additionalProperties: false
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        refundNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - commandId
+      - refundNo
+    CommandAcceptedVo:
+      type: object
+      additionalProperties: false
+      properties:
+        commandId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        state:
+          type: string
+          enum:
+          - ACCEPTED
+          - ALREADY_APPLIED
+      required:
+      - commandId
+      - state
+    InternalPaymentStateVo:
+      type: object
+      additionalProperties: false
+      properties:
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        orderId:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 9007199254740991
+        providerCode:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9_-]+$
+        environment:
+          type: string
+          enum:
+          - SANDBOX
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        checkoutUrl:
+          type: string
+          minLength: 0
+          maxLength: 2000
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+        providerTransactionNo:
+          type: string
+          minLength: 1
+          maxLength: 128
+        paidAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        version: *id003
+        closeRequested:
+          type: boolean
+      required:
+      - paymentNo
+      - orderId
+      - providerCode
+      - environment
+      - amount
+      - currency
+      - status
+      - expiresAt
+      - createdAt
+      - version
+      - closeRequested
+    InternalRefundStateVo:
+      type: object
+      additionalProperties: false
+      properties:
+        refundNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        paymentNo:
+          type: string
+          minLength: 1
+          maxLength: 64
+        status:
+          type: string
+          enum:
+          - PROCESSING
+          - SUCCEEDED
+          - FAILED
+          - UNKNOWN
+        amount:
+          $ref: '#/components/schemas/Money'
+        currency:
+          type: string
+          enum:
+          - CNY
+        version: *id003
+        providerRefundNo:
+          type: string
+          minLength: 1
+          maxLength: 128
+        refundedAt: *id002
+        failureCode:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+      - refundNo
+      - paymentNo
+      - status
+      - amount
+      - currency
+      - version
+    ResultAuthContextVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/AuthContextVo'
+      required:
+      - code
+      - message
+      - data
+    ResultMerchantProfileVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/MerchantProfileVo'
+      required:
+      - code
+      - message
+      - data
+    ResultPaymentAuthorizationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/PaymentAuthorizationVo'
+      required:
+      - code
+      - message
+      - data
+    ResultRefundExecutionAuthorizationVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/RefundExecutionAuthorizationVo'
+      required:
+      - code
+      - message
+      - data
+    ResultCommandAcceptedVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/CommandAcceptedVo'
+      required:
+      - code
+      - message
+      - data
+    ResultInternalPaymentStateVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/InternalPaymentStateVo'
+      required:
+      - code
+      - message
+      - data
+    ResultInternalRefundStateVo:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: integer
+          enum:
+          - 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        data:
+          $ref: '#/components/schemas/InternalRefundStateVo'
+      required:
+      - code
+      - message
+      - data
+x-unresolved-provider-details: 支付供应商尚未指定。通知字段、验签算法、证书来源、应答及重试协议须选型后补齐；当前只固定业务侧支付、退款和跨服务结果契约。
+x-legacy-disposition:
+- method: GET
+  path: /orders/no/{orderNo}
+  handler: OrderController.getOrderByOrderNo
+  action: change
+  targetOperationIds:
+  - OrderController_getOrderByOrderNo
+- method: GET
+  path: /orders/user/{userId}
+  handler: OrderController.getUserOrders
+  action: replace
+  targetOperationIds:
+  - OrderController_listMyOrders
+- method: GET
+  path: /orders/{id}
+  handler: OrderController.getOrderById
+  action: change
+  targetOperationIds:
+  - OrderController_getOrderById
+- method: GET
+  path: /products
+  handler: ProductController.searchProducts
+  action: change
+  targetOperationIds:
+  - ProductController_searchProducts
+- method: GET
+  path: /products/merchant/{merchantId}
+  handler: ProductController.getProductsByMerchant
+  action: change
+  targetOperationIds:
+  - ProductController_getMerchantStoreProducts
+- method: GET
+  path: /products/{id}
+  handler: ProductController.getProductById
+  action: change
+  targetOperationIds:
+  - ProductController_getProductById
+- method: GET
+  path: /reviews/product/{productId}
+  handler: ReviewController.getProductReviews
+  action: change
+  targetOperationIds:
+  - ReviewController_getProductReviews
+- method: GET
+  path: /reviews/user/{userId}
+  handler: ReviewController.getUserReviews
+  action: replace
+  targetOperationIds:
+  - ReviewController_listMyReviews
+- method: GET
+  path: /users/{id}
+  handler: UserController.getUserById
+  action: replace
+  targetOperationIds:
+  - UserController_getMe
+- method: POST
+  path: /orders
+  handler: OrderController.createOrder
+  action: replace
+  targetOperationIds:
+  - CheckoutController_createCheckout
+- method: POST
+  path: /orders/{id}/cancel
+  handler: OrderController.cancelOrder
+  action: change
+  targetOperationIds:
+  - OrderController_cancelOrder
+- method: POST
+  path: /products
+  handler: ProductController.createProduct
+  action: change
+  targetOperationIds:
+  - ProductController_createProduct
+- method: POST
+  path: /reviews
+  handler: ReviewController.createReview
+  action: change
+  targetOperationIds:
+  - ReviewController_createReview
+- method: POST
+  path: /reviews/{id}/reply
+  handler: ReviewController.replyReview
+  action: change
+  targetOperationIds:
+  - ReviewController_replyReview
+- method: POST
+  path: /users/login
+  handler: UserController.login
+  action: change
+  targetOperationIds:
+  - UserController_login
+- method: POST
+  path: /users/register
+  handler: UserController.register
+  action: change
+  targetOperationIds:
+  - UserController_register
+- method: PUT
+  path: /orders/{id}/status
+  handler: OrderController.updateOrderStatus
+  action: replace
+  targetOperationIds:
+  - PaymentController_createPayment
+  - MerchantOrderController_shipOrder
+  - OrderController_confirmReceipt
+  - RefundController_requestRefund
+  - OrderController_cancelOrder
+- method: PUT
+  path: /products/{id}/status
+  handler: ProductController.updateProductStatus
+  action: change
+  targetOperationIds:
+  - ProductController_updateProductStatus
+- method: PUT
+  path: /products/{id}/stock
+  handler: ProductController.updateStock
+  action: change
+  targetOperationIds:
+  - ProductController_adjustStock
+x-services:
+  S01:
+    name: 用户服务
+    application: agrimart-user-service
+    port: 8081
+    database: agrimart_user
+    color: '#1c5b91'
+    background: '#edf5fd'
+  S02:
+    name: 农资买卖服务
+    application: agrimart-trade-service
+    port: 8082
+    database: agrimart_trade
+    color: '#087f5b'
+    background: '#e6f6ef'
+  S03:
+    name: 支付服务
+    application: agrimart-payment-service
+    port: 8083
+    database: agrimart_payment
+    color: '#6c49a3'
+    background: '#f2edfa'
+x-gateway-routing:
+- priority: 0
+  pattern: /internal/** 及 /api/internal/**
+  action: deny-external
+- priority: 10
+  pattern: /api/orders/{id}/payments、/api/payments/**、/api/payment-callbacks/**
+  service: S03
+- priority: 20
+  pattern: /api/users/**、/api/merchant-applications/**、/api/admin/merchant-applications/**
+  service: S01
+- priority: 30
+  pattern: /api/products/**、/api/merchant/**、/api/admin/products/**、/api/checkouts/**、/api/orders/**、/api/refunds/**、/api/reviews/**
+  service: S02
+x-consistency-policy: 每个服务仅提交自己的本地事务；内部命令和事实持久化重投、业务号唯一、接收去重、单调版本与定期核对。HTTP 接受不等于资金完成，不使用跨服务数据库事务。
