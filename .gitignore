@@ -43,3 +43,7 @@ pnpm-debug.log*
 *.tmp
 *.temp
 .cache/
+
+# AI
+*.claude/*
+.claude/
