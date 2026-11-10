@@ -11,4 +11,22 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
-volumes: {mysql-data: {}}
+  rabbitmq:
+    image: rabbitmq:4.2-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-agrimart}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-agrimart_dev}
+      RABBITMQ_DEFAULT_VHOST: /agrimart
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+volumes:
+  mysql-data: {}
+  rabbitmq-data: {}

@@ -83,6 +83,13 @@ class Errors {
                 400, "invalid request", "VALIDATION_ERROR", null, UUID.randomUUID().toString()));
     }
 
+    /** 状态机拒绝冲突更新，保持现有状态及本地消息不变。 */
+    @ExceptionHandler({IllegalStateException.class, org.springframework.dao.OptimisticLockingFailureException.class})
+    ResponseEntity<Api.ErrorBody> conflict(Exception e) {
+        return ResponseEntity.status(409).body(new Api.ErrorBody(
+                409, "state conflict", "STATE_CONFLICT", null, UUID.randomUUID().toString()));
+    }
+
     /**
      * 隐藏未知异常详情并返回服务器错误。
      * @param e 未预期的异常

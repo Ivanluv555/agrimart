@@ -36,7 +36,8 @@ class PaymentControllerTest {
         assertThat(accepted.getStatusCode().value()).isEqualTo(202);
         c.close("P1", req);
         verify(logic).close("P1");
-        assertThat(c.state("P1", req).data()).isSameAs(p);
+        c.state("P1", req);
+        verify(logic).state("P1");
         when(req.getHeader("X-User-Id")).thenReturn("5");
         assertThatThrownBy(() -> c.get("P1", req)).isInstanceOf(NoSuchElementException.class);
     }

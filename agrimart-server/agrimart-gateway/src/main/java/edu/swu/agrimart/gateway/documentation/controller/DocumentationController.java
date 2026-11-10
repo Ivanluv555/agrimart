@@ -18,6 +18,7 @@ public class DocumentationController {
 
     /**
      * 创建文档代理接口。
+     * 
      * @param documentation 文档获取及网关适配服务
      */
     public DocumentationController(DocumentationService documentation) {
@@ -26,6 +27,7 @@ public class DocumentationController {
 
     /**
      * 返回适配网关调用地址及认证方式的业务文档。
+     * 
      * @param service 业务服务标识
      * @param request 当前 HTTP 请求
      * @return 供 Swagger UI 展示和调试的 OpenAPI 文档

@@ -4,7 +4,7 @@ AgriMart 后端由用户、交易、支付三个独立业务服务，以及统�
 
 架构图：[项目架构.excalidraw](./项目架构.excalidraw)，包含运行拓扑、主要类通信、组件与目录位置，以及尚未接通的内部调用。
 
-客户演示：[客户实际演示指南](./客户实际演示指南.md)，包含环境准备、可复制的 API 操作、现场讲解话术、当前功能边界和故障备用方案。
+RabbitMQ 接入与资金链：[配置、事件、Outbox/Inbox、沙箱回调及对账](./docs/rabbitmq.md)。
 
 ## 目录约定
 
@@ -40,7 +40,7 @@ edu.swu.agrimart
     └── payment.dto     # 支付授权与支付事件协议
 ```
 
-业务类、测试类、方法及 DTO 均使用中文 Javadoc；参数、返回值和异常采用标准 `@param`、`@return`、`@throws` 标签。公共模块只包含协议和认证辅助代码，不包含共享 JPA 实体或仓储。
+业务类、测试类、方法及 DTO 均使用中文 Javadoc；参数、返回值和异常采用标准 `@param`、`@return`、`@throws` 标签。公共模块包含协议、认证辅助代码和本地消息 JDBC 基础设施，不包含共享 JPA 实体或跨库仓储。
 
 ## 版本管理
 
@@ -99,7 +99,7 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroo
 
 启动三个业务服务和网关后，在 Swagger UI 顶部选择服务。网关使用现有 `agrimart.routes.*` 地址获取对应服务文档，服务未启动时对应文档返回 503，其他服务文档仍可访问。业务服务只提供文档数据，UI 统一由网关提供。
 
-统一 UI 的调试请求使用同源 `/api` 地址，经过网关的路由和认证流程。注册、登录及契约中的公开商品、公开评价查询无需登录，POST 支付和退款回调不要求用户令牌，但下游必须实现供应商验签；回调业务本身尚未实现。其他操作先调用登录接口，将响应中的 `accessToken` 填入右上角 **Authorize**；只填写令牌本身，无需添加 `Bearer ` 前缀。具体业务权限及支付供应商配置仍按现有实现执行。
+统一 UI 的调试请求使用同源 `/api` 地址，经过网关的路由和认证流程。注册、登录及契约中的公开商品、公开评价查询无需登录，POST 支付和退款回调不要求用户令牌，但下游必须实现供应商验签；已实现项目内 sandbox 的 HMAC 回调，见 [RabbitMQ 文档](./docs/rabbitmq.md)。其他操作先调用登录接口，将响应中的 `accessToken` 填入右上角 **Authorize**；只填写令牌本身，无需添加 `Bearer ` 前缀。具体业务权限及支付供应商配置仍按现有实现执行。
 
 各服务原始文档保留内部接口；网关文档隐藏 `/internal` 路径，不提供内部接口调试入口。直接调用业务服务的鉴权要求与网关不同，前端联调应使用统一 UI。接口和请求模型由控制器及 DTO 自动生成，当前统一响应中使用的 `Api.Result<?>` 不会自动推断出具体业务响应模型。
 
@@ -107,13 +107,13 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroo
 
 ## 测试和当前业务范围
 
-现有链路修复和后续业务批次见[契约修复与后续批次](./契约修复与后续批次.md)。商品列表现已分页，例如 `GET /api/products?page=1&size=10`，前端应读取 `data.records`，总数及分页信息位于 `data.total/page/size/totalPages`。交易服务启动时执行新增 V2 迁移，保留商品数据并补齐创建时间及分页索引。
+消息资金链及后续业务边界见 [RabbitMQ 文档](./docs/rabbitmq.md)。商品列表现已分页，例如 `GET /api/products?page=1&size=10`，前端应读取 `data.records`，总数及分页信息位于 `data.total/page/size/totalPages`。交易服务启动时执行新增 V2 迁移，保留商品数据并补齐创建时间及分页索引。
 
 `mvn clean verify` 执行全部模块测试并生成四个可执行应用 JAR。H2 仅为测试依赖；测试资源显式使用独立内存数据库、关闭 Flyway，并通过 `create-drop` 创建测试表，因此单元测试与仓储测试不依赖 Docker。
 
 测试覆盖账户注册、密码及会话、DTO 校验、商品与订单、仓储约束、支付记录、异常响应、网关路由以及网关实际 HTTP 启动。支付事件和关单操作已收归 Service 事务，并验证提交后从仓储重新读取的状态。
 
-当前保留单商家结算和既有接口契约。支付供应商未配置时，支付服务返回 `503/PAYMENT_PROVIDER_NOT_CONFIGURED`。完整退款、真实支付沙箱、多商家拆单、Nacos 及规划文档中的全量业务仍属于后续工作，本次结构重构不代表这些功能已经实现。
+当前保留单商家结算和既有接口契约。支付供应商未配置时，支付服务返回 `503/PAYMENT_PROVIDER_NOT_CONFIGURED`。当前已接入 Spring AMQP、各业务库的 Outbox/Inbox、系统补偿退款与 P03/P04 对账；默认关闭 broker 处理以保留无 broker 开发和测试。启用方式及本地 sandbox 回调见 [RabbitMQ 文档](./docs/rabbitmq.md)。普通买家退款/商家审核、真实供应商适配、多商家拆单、Nacos 和其他规划业务仍需后续实现。
 
 ## 本次重构验证记录（2026-11-10）
 

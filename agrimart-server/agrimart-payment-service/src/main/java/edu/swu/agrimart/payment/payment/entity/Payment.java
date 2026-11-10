@@ -34,6 +34,20 @@ public class Payment {
     @Column(nullable = false)
     OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(30);
 
+    @Version
+    private long lockVersion;
+    @Column(nullable = false)
+    private long eventVersion = 1;
+    private String providerTransactionNo;
+    private OffsetDateTime paidAt;
+    public long getEventVersion() { return eventVersion; }
+    public void advanceEventVersion() { eventVersion++; }
+    public String getProviderTransactionNo() { return providerTransactionNo; }
+    public void setProviderTransactionNo(String value) { providerTransactionNo = value; }
+    public void setExpiresAt(OffsetDateTime value) { expiresAt = value; }
+    public OffsetDateTime getPaidAt() { return paidAt; }
+    public void setPaidAt(OffsetDateTime value) { paidAt = value; }
+
     /** 支付记录的资金状态。 */
     public enum Status {
         INITIATING,

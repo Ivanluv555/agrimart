@@ -8,3 +8,26 @@ spring.jpa.hibernate.ddl-auto: ${DDL_AUTO:validate}
 spring.jpa.open-in-view: false
 agrimart.service-token: ${SERVICE_TOKEN:dev-service-token}
 spring.jpa.properties.hibernate.jdbc.time_zone: UTC
+
+# Broker 只在显式启用消息处理时启动监听和 relay；Outbox 始终与业务同事务写入。
+agrimart.messaging.enabled: ${MESSAGING_ENABLED:false}
+spring.rabbitmq.host: ${RABBITMQ_HOST:localhost}
+spring.rabbitmq.port: ${RABBITMQ_PORT:5672}
+spring.rabbitmq.username: ${RABBITMQ_USERNAME:agrimart}
+spring.rabbitmq.password: ${RABBITMQ_PASSWORD:agrimart_dev}
+spring.rabbitmq.virtual-host: ${RABBITMQ_VHOST:/agrimart}
+spring.rabbitmq.connection-timeout: 3s
+spring.rabbitmq.publisher-confirm-type: correlated
+spring.rabbitmq.publisher-returns: true
+spring.rabbitmq.template.mandatory: true
+spring.rabbitmq.listener.simple.acknowledge-mode: auto
+spring.rabbitmq.listener.simple.prefetch: 20
+spring.rabbitmq.listener.simple.default-requeue-rejected: false
+spring.rabbitmq.listener.simple.retry.enabled: true
+spring.rabbitmq.listener.simple.retry.max-retries: 2
+spring.rabbitmq.listener.simple.retry.initial-interval: 1s
+spring.rabbitmq.listener.simple.retry.max-interval: 5s
+spring.rabbitmq.listener.simple.retry.multiplier: 2
+
+# relay 与 HTTP 对账各有调度线程，broker 故障不会阻塞对账任务。
+spring.task.scheduling.pool.size: 2

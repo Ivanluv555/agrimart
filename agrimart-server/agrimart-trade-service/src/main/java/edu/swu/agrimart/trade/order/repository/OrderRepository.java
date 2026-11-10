@@ -8,6 +8,10 @@ import java.util.*;
 
 /** 订单持久化仓储，支持按业务订单号查询。 */
 public interface OrderRepository extends JpaRepository<TradeOrder, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from TradeOrder p where p.id = :key")
+    Optional<TradeOrder> lock(@org.springframework.data.repository.query.Param("key") Long key);
+
     /**
      * 按业务订单号查找订单。
      *

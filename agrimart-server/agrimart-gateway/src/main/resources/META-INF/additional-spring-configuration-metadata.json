@@ -1,0 +1,29 @@
+{
+    "properties": [
+        {
+            "name": "agrimart.routes.user",
+            "type": "java.net.URI",
+            "description": "用户服务的目标地址（包含协议、主机和端口），网关会将用户相关的请求转发到该地址，例如 'http://localhost:8081'。"
+        },
+        {
+            "name": "agrimart.routes.trade",
+            "type": "java.net.URI",
+            "description": "交易服务的目标地址（包含协议、主机和端口），网关会将交易相关的请求转发到该地址，例如 'http://localhost:8082'。"
+        },
+        {
+            "name": "agrimart.gateway-token",
+            "type": "java.lang.String",
+            "description": "网关调用后端服务时用于标识自身身份的共享密钥令牌；该令牌会随转发请求一起发送，以便下游服务确认请求确实来自网关。"
+        },
+        {
+            "name": "agrimart.routes.payment",
+            "type": "java.net.URI",
+            "description": "支付服务的目标地址（包含协议、主机和端口），网关会将支付相关的请求转发到该地址，例如 'http://localhost:8083'。"
+        },
+        {
+            "name": "agrimart.service-token",
+            "type": "java.lang.String",
+            "description": "网关访问后端服务时用于认证的服务间凭证令牌；各服务会校验该令牌以授权经由网关进来的请求。"
+        }
+    ]
+}

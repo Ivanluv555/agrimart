@@ -32,7 +32,7 @@ class OrderServiceTest {
     void setUp() {
         products = mock(ProductRepository.class);
         orders = mock(OrderRepository.class);
-        logic = new OrderService(products, orders);
+        logic = new OrderService(products, orders, mock(edu.swu.agrimart.common.messaging.service.MessageStore.class), mock(OrderFundsService.class));
     }
 
     /** 验证重复商品项合并并允许恰好耗尽库存。 */
@@ -93,7 +93,7 @@ class OrderServiceTest {
     void buyerCanCancelPendingOrderButNotAnotherBuyersOrder() {
         TradeOrder order = new TradeOrder();
         order.setBuyerId(8L);
-        when(orders.findById(1L)).thenReturn(Optional.of(order));
+        when(orders.lock(1L)).thenReturn(Optional.of(order));
         assertThatThrownBy(() -> logic.cancel(9L, 1L)).hasMessage("RESOURCE_NOT_FOUND");
         assertThat(order.getStatus()).isEqualTo(TradeOrder.Status.PENDING_PAYMENT);
         assertThat(logic.cancel(8L, 1L)).isSameAs(order);
@@ -114,7 +114,7 @@ class OrderServiceTest {
         TradeOrder order = new TradeOrder();
         order.setBuyerId(8L);
         order.setStatus(status);
-        when(orders.findById(1L)).thenReturn(Optional.of(order));
+        when(orders.lock(1L)).thenReturn(Optional.of(order));
         assertThatThrownBy(() -> logic.cancel(8L, 1L)).hasMessage("STATE_CONFLICT");
         assertThat(order.getStatus()).isEqualTo(status);
     }
@@ -122,9 +122,9 @@ class OrderServiceTest {
     /** 验证支付授权包含订单归属、支付号、金额与币种。 */
     @Test
     void authorizationCarriesOrderPaymentAndCurrency() {
-        when(orders.findById(1L)).thenReturn(Optional.of(order()));
+        when(orders.lock(1L)).thenReturn(Optional.of(order()));
         PaymentAuthorization result =
-                (PaymentAuthorization) logic.authorize(1L, Map.of("paymentNo", "P-1"));
+                (PaymentAuthorization) logic.authorize(1L, Map.of("paymentNo", "P-1", "buyerId",8L));
         assertThat(result.authorizationNo()).startsWith("A");
         assertThat(result.paymentNo()).isEqualTo("P-1");
         assertThat(result.orderId()).isEqualTo(1L);
@@ -140,8 +140,8 @@ class OrderServiceTest {
     void rejectsNonPendingAuthorization() {
         TradeOrder order = order();
         order.setStatus(TradeOrder.Status.PAID);
-        when(orders.findById(1L)).thenReturn(Optional.of(order));
-        assertThatThrownBy(() -> logic.authorize(1L, Map.of())).hasMessage("STATE_CONFLICT");
+        when(orders.lock(1L)).thenReturn(Optional.of(order));
+        assertThatThrownBy(() -> logic.authorize(1L, Map.of("paymentNo","P-1","buyerId",8L))).hasMessage("STATE_CONFLICT");
     }
 
     /**
@@ -152,16 +152,9 @@ class OrderServiceTest {
     @ParameterizedTest
     @ValueSource(strings = {"SUCCEEDED", "CLOSED", "PENDING"})
     void eventsApplyOnlyRecognizedStatuses(String status) {
-        TradeOrder order = order();
-        when(orders.findById(1L)).thenReturn(Optional.of(order));
         logic.event(1L, event(status));
-        TradeOrder.Status expected =
-                switch (status) {
-                    case "SUCCEEDED" -> TradeOrder.Status.PAID;
-                    case "CLOSED" -> TradeOrder.Status.CANCELLED;
-                    default -> TradeOrder.Status.PENDING_PAYMENT;
-                };
-        assertThat(order.getStatus()).isEqualTo(expected);
+        verify(logic.funds).accept(argThat(e -> e.status().equals(status) && e.orderId().equals(1L)));
+
     }
 
     /**
@@ -184,6 +177,6 @@ class OrderServiceTest {
      * @return 测试所需的样例数据或配置对象
      */
     private PaymentEvent event(String status) {
-        return new PaymentEvent("E1", "P1", 1L, 1, status, "12.30", "CNY", null, null);
+        return new PaymentEvent("E1", "P1", 1L, 1, status, "12.30", "CNY", "provider-1", java.time.OffsetDateTime.now());
     }
 }

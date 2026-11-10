@@ -21,9 +21,10 @@ public class DocumentationService {
 
     /**
      * 创建使用现有业务路由地址的文档服务。
-     * @param builder HTTP 客户端构建器
-     * @param userUrl 用户服务地址
-     * @param tradeUrl 交易服务地址
+     * 
+     * @param builder    HTTP 客户端构建器
+     * @param userUrl    用户服务地址
+     * @param tradeUrl   交易服务地址
      * @param paymentUrl 支付服务地址
      */
     public DocumentationService(
@@ -37,17 +38,20 @@ public class DocumentationService {
 
     /**
      * 获取文档并设置网关调用前缀；内部接口仍保留在服务自身文档中。
+     * 
      * @param service 固定列表中的业务服务标识
      * @param apiBase 网关业务接口前缀
      * @return 经过网关适配的 OpenAPI 文档
      */
     public Map<String, Object> document(String service, String apiBase) {
         String url = services.get(service);
-        if (url == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未知文档服务");
+        if (url == null)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未知文档服务");
         Map<String, Object> document;
         try {
             document = client.get().uri(url + "/v3/api-docs").retrieve()
-                    .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+                    .body(new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
         } catch (RestClientException ex) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "业务服务文档暂不可用", ex);
         }
@@ -72,8 +76,9 @@ public class DocumentationService {
 
     /**
      * 读取或补充 OpenAPI 文档中的对象节点。
+     * 
      * @param parent 上级对象
-     * @param key 子对象名称
+     * @param key    子对象名称
      * @return 可修改的子对象
      */
     @SuppressWarnings("unchecked")

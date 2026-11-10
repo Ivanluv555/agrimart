@@ -8,12 +8,17 @@
         {
             "name": "payment.provider.configured",
             "type": "java.lang.Boolean",
-            "description": "是否已配置支付供应商。"
+            "description": "是否启用本地 sandbox 支付状态机；真实供应商适配尚需另行实现。"
         },
         {
             "name": "agrimart.gateway-token",
             "type": "java.lang.String",
             "description": "网关可信身份转发凭据，可通过 GATEWAY_TOKEN 环境变量设置。"
+        },
+        {
+            "name": "payment.sandbox.callback-secret",
+            "type": "java.lang.String",
+            "description": "本地 sandbox 回调 HMAC-SHA256 密钥；空值时拒绝回调。"
         }
     ]
 }

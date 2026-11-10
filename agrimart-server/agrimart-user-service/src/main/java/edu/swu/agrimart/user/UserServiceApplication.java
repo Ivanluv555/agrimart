@@ -7,6 +7,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /** 用户服务的应用启动入口。 */
+@org.springframework.context.annotation.Import({
+    edu.swu.agrimart.common.messaging.config.MessageStoreConfiguration.class,
+    edu.swu.agrimart.common.messaging.config.RabbitMessagingConfiguration.class})
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "AgriMart 用户服务", version = "v1"))
 public class UserServiceApplication {

@@ -28,6 +28,7 @@ class OrderRepositoryTest {
         TradeOrder order = new TradeOrder();
         order.setOrderNo("O-event-persistence");
         order.setBuyerId(9L);
+        order.setPaymentNo("P-persistence");
         order.setMerchantId(7L);
         order.setTotalAmount(new BigDecimal("25.00"));
         orders.saveAndFlush(order);
@@ -42,8 +43,8 @@ class OrderRepositoryTest {
                             "SUCCEEDED",
                             "25.00",
                             "CNY",
-                            null,
-                            null));
+                            "provider-persistence",
+                            java.time.OffsetDateTime.now()));
             assertThat(orders.findById(order.getId()))
                     .get()
                     .extracting(TradeOrder::getStatus)
@@ -59,6 +60,7 @@ class OrderRepositoryTest {
         TradeOrder order = new TradeOrder();
         order.setOrderNo("O-test");
         order.setBuyerId(9L);
+        order.setPaymentNo("P-persistence");
         order.setMerchantId(7L);
         order.setTotalAmount(new BigDecimal("25.00"));
         orders.saveAndFlush(order);

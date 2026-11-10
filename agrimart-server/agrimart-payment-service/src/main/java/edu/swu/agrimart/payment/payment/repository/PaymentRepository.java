@@ -8,6 +8,10 @@ import java.util.*;
 
 /** 支付持久化仓储，支持按支付号和订单标识查询。 */
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select p from Payment p where p.paymentNo = :key")
+    Optional<Payment> lock(@org.springframework.data.repository.query.Param("key") String key);
+
     /**
      * 按支付业务号查找支付记录。
      *

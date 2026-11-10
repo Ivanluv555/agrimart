@@ -111,6 +111,6 @@ public class PaymentController {
     @GetMapping("/internal/payments/{no}")
     Api.Result<?> state(@PathVariable String no, HttpServletRequest request) {
         RequestAuth.requireService(request, serviceToken);
-        return Api.Result.ok(logic.get(no));
+        return Api.Result.ok(logic.state(no));
     }
 }

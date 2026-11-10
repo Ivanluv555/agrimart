@@ -29,7 +29,7 @@ class OrderBehaviorTest {
         p.setMerchantId(8L);
         when(products.findById(1L)).thenReturn(Optional.of(p));
         when(orders.save(any())).thenAnswer(i -> i.getArgument(0));
-        OrderService logic = new OrderService(products, orders);
+        OrderService logic = new OrderService(products, orders, mock(edu.swu.agrimart.common.messaging.service.MessageStore.class), mock(OrderFundsService.class));
         TradeOrder result = logic.order(3L, new CreateOrder(List.of(new Item(1, 2))));
         assertThat(p.getStock()).isEqualTo(3);
         assertThat(result.getTotalAmount()).isEqualByComparingTo("5.00");
@@ -41,7 +41,7 @@ class OrderBehaviorTest {
     void checkoutRejectsMissingInsufficientAndMixedMerchantProducts() {
         ProductRepository products = mock(ProductRepository.class);
         OrderRepository orders = mock(OrderRepository.class);
-        OrderService logic = new OrderService(products, orders);
+        OrderService logic = new OrderService(products, orders, mock(edu.swu.agrimart.common.messaging.service.MessageStore.class), mock(OrderFundsService.class));
         assertThatThrownBy(() -> logic.order(1L, new CreateOrder(List.of(new Item(9, 1)))))
                 .isInstanceOf(NoSuchElementException.class);
         Product shortStock = product(1L, 2);

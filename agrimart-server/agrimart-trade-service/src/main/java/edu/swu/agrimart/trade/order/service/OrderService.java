@@ -21,6 +21,8 @@ import java.util.*;
 public class OrderService {
     final ProductRepository products;
     final OrderRepository orders;
+    final edu.swu.agrimart.common.messaging.service.MessageStore messages;
+    final OrderFundsService funds;
 
     /**
      * 创建订单结算与状态管理服务。
@@ -28,7 +30,10 @@ public class OrderService {
      * @param p 商品仓储
      * @param o 订单仓储
      */
-    public OrderService(ProductRepository p, OrderRepository o) {
+    public OrderService(ProductRepository p, OrderRepository o,
+            edu.swu.agrimart.common.messaging.service.MessageStore messages, OrderFundsService funds) {
+        this.messages=messages;
+        this.funds=funds;
         products = p;
         orders = o;
     }
@@ -87,11 +92,17 @@ public class OrderService {
      */
     @Transactional
     public TradeOrder cancel(Long buyer, Long id) {
-        TradeOrder o = get(id);
+        TradeOrder o = orders.lock(id).orElseThrow(() -> new NoSuchElementException("RESOURCE_NOT_FOUND"));
         if (!o.getBuyerId().equals(buyer)) throw new NoSuchElementException("RESOURCE_NOT_FOUND");
         if (o.getStatus() != TradeOrder.Status.PENDING_PAYMENT)
             throw new IllegalStateException("STATE_CONFLICT");
-        o.setStatus(TradeOrder.Status.CANCELLED);
+        if (o.getPaymentNo()==null) o.setStatus(TradeOrder.Status.CANCELLED);
+        else {
+            o.setStatus(TradeOrder.Status.CLOSING);
+            messages.append(edu.swu.agrimart.common.messaging.dto.FundsEvent.of(
+                    edu.swu.agrimart.common.messaging.dto.FundsEvent.Kind.CLOSE_PAYMENT,
+                    o.getPaymentNo(),o.getVersion()+1,id,o.getPaymentNo(),null,o.getTotalAmount(),null,null,null));
+        }
         return o;
     }
 
@@ -102,10 +113,17 @@ public class OrderService {
      * @param request 请求参数或请求上下文
      * @return 包含订单归属、金额与有效期的支付授权
      */
+    @Transactional
     public PaymentAuthorization authorize(Long id, Map<String, Object> request) {
-        TradeOrder order = get(id);
+        TradeOrder order = orders.lock(id).orElseThrow(() -> new NoSuchElementException("RESOURCE_NOT_FOUND"));
+        String paymentNo = Objects.toString(request.get("paymentNo"), "");
+        if (paymentNo.isBlank() || paymentNo.length()>64 || !String.valueOf(order.getBuyerId()).equals(String.valueOf(request.get("buyerId"))))
+            throw new IllegalArgumentException("INVALID_PAYMENT_AUTHORIZATION");
+        if (order.getPaymentNo()!=null && !order.getPaymentNo().equals(paymentNo))
+            throw new IllegalStateException("PAYMENT_ALREADY_BOUND");
         if (order.getStatus() != TradeOrder.Status.PENDING_PAYMENT)
             throw new IllegalStateException("STATE_CONFLICT");
+        order.setPaymentNo(paymentNo);
         return new PaymentAuthorization(
                 "A" + UUID.randomUUID(),
                 String.valueOf(request.get("paymentNo")),
@@ -114,7 +132,7 @@ public class OrderService {
                 order.getMerchantId(),
                 order.getTotalAmount().setScale(2).toPlainString(),
                 "CNY",
-                OffsetDateTime.now().plusMinutes(30));
+                order.getCreatedAt().plusMinutes(30));
     }
 
     /**
@@ -125,8 +143,10 @@ public class OrderService {
      */
     @Transactional
     public void event(Long id, PaymentEvent event) {
-        TradeOrder order = get(id);
-        if ("SUCCEEDED".equals(event.status())) order.setStatus(TradeOrder.Status.PAID);
-        else if ("CLOSED".equals(event.status())) order.setStatus(TradeOrder.Status.CANCELLED);
+        if (!id.equals(event.orderId())) throw new IllegalArgumentException("ORDER_ID_MISMATCH");
+        funds.accept(new edu.swu.agrimart.common.messaging.dto.FundsEvent(1,event.eventId(),
+                edu.swu.agrimart.common.messaging.dto.FundsEvent.Kind.PAYMENT_STATE,event.paymentNo(),event.version(),
+                OffsetDateTime.now(),id,event.paymentNo(),null,event.amount(),event.currency(),event.status(),
+                event.providerTransactionNo(),event.paidAt()));
     }
 }

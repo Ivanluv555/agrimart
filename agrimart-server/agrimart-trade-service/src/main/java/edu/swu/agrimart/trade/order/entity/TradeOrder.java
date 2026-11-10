@@ -34,6 +34,17 @@ public class TradeOrder {
     @Column(nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @Version
+    private long version;
+    private String paymentNo;
+    @Column(nullable = false)
+    private long paymentVersion;
+    public String getPaymentNo() { return paymentNo; }
+    public void setPaymentNo(String value) { paymentNo = value; }
+    public long getPaymentVersion() { return paymentVersion; }
+    public void setPaymentVersion(long value) { paymentVersion = value; }
+    public long getVersion() { return version; }
+
     /** 订单的履约状态。 */
     public enum Status {
         PENDING_PAYMENT,
@@ -41,7 +52,9 @@ public class TradeOrder {
         PAID,
         SHIPPED,
         COMPLETED,
-        CANCELLED
+        CANCELLED,
+        REFUNDING,
+        REFUNDED
     }
 
     /**

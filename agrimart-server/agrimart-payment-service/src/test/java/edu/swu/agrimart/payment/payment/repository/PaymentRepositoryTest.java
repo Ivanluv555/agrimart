@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 @SpringBootTest(
         properties = {
             "spring.flyway.enabled=false",
+            "payment.provider.configured=true",
             "spring.datasource.url=jdbc:h2:mem:payment;DB_CLOSE_DELAY=-1",
             "spring.jpa.hibernate.ddl-auto=create-drop",
             "agrimart.gateway-token=test-token"
@@ -42,7 +43,7 @@ class PaymentRepositoryTest {
                     .extracting(Payment::getStatus)
                     .isEqualTo(Payment.Status.CLOSED);
         } finally {
-            payments.delete(payment);
+            payments.delete(payments.findByPaymentNo(payment.getPaymentNo()).orElseThrow());
         }
     }
 

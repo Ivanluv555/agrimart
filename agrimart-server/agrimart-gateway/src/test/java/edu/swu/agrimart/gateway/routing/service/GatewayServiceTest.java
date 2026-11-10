@@ -1,7 +1,6 @@
 package edu.swu.agrimart.gateway.routing.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
@@ -238,8 +237,9 @@ class GatewayServiceTest {
 
     /**
      * 验证游客操作不触发会话校验，并且不能伪造内部调用身份。
+     * 
      * @param method HTTP 方法
-     * @param path 网关请求路径
+     * @param path   网关请求路径
      * @param target 预期下游地址
      * @throws Exception 请求转发失败
      */
@@ -276,8 +276,9 @@ class GatewayServiceTest {
 
     /**
      * 验证游客放行不会扩展到写操作或其他同前缀路径。
+     * 
      * @param method HTTP 方法
-     * @param path 网关请求路径
+     * @param path   网关请求路径
      * @throws Exception 请求处理失败
      */
     @org.junit.jupiter.params.ParameterizedTest
@@ -294,17 +295,19 @@ class GatewayServiceTest {
 
     /**
      * 验证下游的 403、404 和 409 及其业务错误体不会被网关改写。
+     * 
      * @param status 下游 HTTP 状态
      * @throws Exception 请求处理失败
      */
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(ints = {403, 404, 409})
+    @org.junit.jupiter.params.provider.ValueSource(ints = { 403, 404, 409 })
     void forwardsDownstreamBusinessErrors(int status) throws Exception {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("http://user.test/users/login"))
                 .andRespond(withStatus(org.springframework.http.HttpStatus.valueOf(status))
-                        .contentType(MediaType.APPLICATION_JSON).body("{\"errorCode\":\"BUSINESS_ERROR\"}"));
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"errorCode\":\"BUSINESS_ERROR\"}"));
         MockHttpServletResponse response = new MockHttpServletResponse();
         gateway(builder).proxy(request("POST", "/api/users/login", null, "{}"), response);
         assertThat(response.getStatus()).isEqualTo(status);
@@ -314,6 +317,7 @@ class GatewayServiceTest {
 
     /**
      * 验证用户服务继续收到认证后的原始 Bearer 令牌。
+     * 
      * @throws Exception 请求处理失败
      */
     @Test
@@ -321,7 +325,8 @@ class GatewayServiceTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("http://user.test/internal/auth/introspections"))
-                .andRespond(withSuccess("{\"data\":{\"userId\":7,\"role\":\"FARMER\"}}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"data\":{\"userId\":7,\"role\":\"FARMER\"}}",
+                        MediaType.APPLICATION_JSON));
         server.expect(requestTo("http://user.test/users/me"))
                 .andExpect(header("Authorization", "Bearer access-token"))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
@@ -335,6 +340,7 @@ class GatewayServiceTest {
 
     /**
      * 验证认证服务连接失败属于依赖错误，而非用户凭据无效。
+     * 
      * @throws Exception 请求处理失败
      */
     @Test
@@ -342,7 +348,9 @@ class GatewayServiceTest {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         server.expect(requestTo("http://user.test/internal/auth/introspections"))
-                .andRespond(request -> { throw new java.net.SocketTimeoutException("timeout"); });
+                .andRespond(request -> {
+                    throw new java.net.SocketTimeoutException("timeout");
+                });
         var request = request("GET", "/api/orders/7", null, "");
         request.addHeader("Authorization", "Bearer access-token");
         var response = new MockHttpServletResponse();

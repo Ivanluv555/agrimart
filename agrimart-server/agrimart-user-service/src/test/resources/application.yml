@@ -10,3 +10,6 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
+
+agrimart.messaging.enabled: false
+spring.sql.init.schema-locations: classpath:db/messaging-schema.sql
